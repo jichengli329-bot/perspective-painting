@@ -11,23 +11,22 @@ namespace PerspectivePuzzle.PlayMode.Tests
 {
     /// <summary>
     /// T-009B2 composition calibration tests: load the deterministically built
-    /// Painting Prototype scene and verify the evaluator and the eight ordered
-    /// piece IDs are wired, that the untouched solved arrangement passes with a
-    /// strong score, and that moving the Arch Bridge measurably degrades the
-    /// total score and the bridge's piece metrics before an exact restore
-    /// recovers the strong score. Evaluations are requested explicitly (never
-    /// relying on the automatic 6 Hz cadence) and waited for with bounded
-    /// real-time timeouts.
+    /// Red Cliffs scene (the first gallery that exposes all eight manipulable
+    /// pieces) and verify the evaluator and the eight ordered piece IDs are
+    /// wired, that the untouched solved arrangement passes with a strong score,
+    /// and that moving the Arch Bridge measurably degrades the total score and
+    /// the bridge's piece metrics before an exact restore recovers the strong
+    /// score. Evaluations are requested explicitly (never relying on the
+    /// automatic 6 Hz cadence) and waited for with bounded real-time timeouts.
     /// </summary>
     public class PaintingCompositionPlayModeTests
     {
-        private const string PaintingPrototypeScenePath = "Assets/Scenes/PaintingPrototype.unity";
+        private const string RedCliffsScenePath = "Assets/Scenes/PaintingRedCliffs.unity";
         private const float SampleTimeoutSeconds = 10f;
         private const float StrongScoreThreshold = 0.97f;
         private const float MaterialScoreDrop = 0.05f;
         private const int ArchBridgeIndex = 6;
         private const int PavilionIndex = 5;
-        private const int ForegroundRockIndex = 7;
 
         /// <summary>Required piece roots in evaluator order.</summary>
         private static readonly string[] RequiredPieces =
@@ -45,7 +44,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
         [UnityTest]
         public IEnumerator UntouchedSolvedArrangementPassesWithStrongScore()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -64,13 +63,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
                 + ", Target/CurrentForeground=" + result.TargetForegroundPixels + "/" + result.CurrentForegroundPixels
                 + ", CurrentPixelsById=" + CurrentPixelSummary(result) + ".");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator MovingArchBridgeDegradesThenRestoringRecovers()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -128,13 +127,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
                 "Restoring the Arch Bridge must recover the strong score; WeightedScore="
                 + recovered.WeightedScore.ToString("F4") + ".");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator DepthVerticalAndOcclusionErrorsReduceRelevantMetrics()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -142,7 +141,6 @@ namespace PerspectivePuzzle.PlayMode.Tests
             SolveAllPieces();
             var bridge = pieces[ArchBridgeIndex].transform;
             var pavilion = pieces[PavilionIndex].transform;
-            var rock = pieces[ForegroundRockIndex].transform;
 
             yield return WaitForEvaluation(evaluator, "additional-error baseline", r => true);
             var baseline = evaluator.LatestResult;
@@ -170,8 +168,12 @@ namespace PerspectivePuzzle.PlayMode.Tests
             bridge.position = bridgePosition;
             yield return WaitForEvaluation(evaluator, "depth restore", r => r.PassesPolicy);
 
-            Vector3 rockPosition = rock.position;
-            rock.position = pavilion.position + new Vector3(0f, 0.15f, 0.8f);
+            Vector3 pavilionPosition = pavilion.position;
+            // Send the pavilion behind the unified multi-mass mountain. This
+            // is a stable visual-occlusion probe for the taller hero asset;
+            // the former small-rock probe only overlapped the retired shallow
+            // pavilion base and no longer touched any pavilion target pixels.
+            pavilion.position = pavilionPosition + new Vector3(0f, 0f, -2.5f);
             yield return WaitForEvaluation(evaluator, "pavilion occlusion error",
                 r => r.WeightedScore < 0.95f);
             var occluded = evaluator.LatestResult;
@@ -182,10 +184,10 @@ namespace PerspectivePuzzle.PlayMode.Tests
                 + occluded.Pieces[PavilionIndex].TargetCoverage.ToString("F4") + ").");
             Assert.Less(occluded.IdentityAccuracy, baseline.IdentityAccuracy,
                 "Wrong foreground occlusion must reduce identity accuracy.");
-            rock.position = rockPosition;
+            pavilion.position = pavilionPosition;
             yield return WaitForEvaluation(evaluator, "occlusion restore", r => r.PassesPolicy);
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         /// <summary>
@@ -195,7 +197,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
         private static PaintingCompositionEvaluator FindEvaluator()
         {
             var evaluator = UnityEngine.Object.FindFirstObjectByType<PaintingCompositionEvaluator>();
-            Assert.IsNotNull(evaluator, "PaintingCompositionEvaluator missing from " + PaintingPrototypeScenePath + ".");
+            Assert.IsNotNull(evaluator, "PaintingCompositionEvaluator missing from " + RedCliffsScenePath + ".");
             return evaluator;
         }
 
@@ -311,7 +313,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
             return string.Join(",", values);
         }
 
-        private static IEnumerator UnloadPrototypeScene()
+        private static IEnumerator UnloadScene()
         {
             var prototypeScene = SceneManager.GetActiveScene();
             var cleanupScene = SceneManager.CreateScene("T009BCleanup");

@@ -1,19 +1,36 @@
-# Active implementation cycle
+# Active delivery cycle
 
-Status: DONE
+Status: IN PROGRESS
 
-# T-011 — Reference, live viewfinder, and guidance
+## T-038 — Public repository and playtest release preparation
 
-Delivered:
+Prepare the current four-gallery Perspective Painting vertical slice for a safe public or private GitHub publication, pending the product owner's explicit choice.
 
-- A right-side warm-ivory curator rail presents the complete target painting and a live 16:9 beauty feed from the Composition Camera.
-- The physical Reference Frame now carries the captured target painting instead of a neutral placeholder.
-- Evaluator output is translated into a smoothly animated progress line and restrained state copy: Arrange the scene, Composition forming, Almost aligned, Painting aligned.
-- One `Focus: [piece]` hint names the scenery piece with the lowest target coverage; no Object-ID colours, grid or raw percentage is exposed.
-- The live RenderTexture is created and released safely at runtime, restoring any prior Composition Camera target on disable/destroy.
-- Deterministic builder validation covers evaluator, camera, target/live images and ordered eight-piece display names.
-- Full GPU-backed PlayMode regression: 19 passed, 0 failed, 0 skipped.
+Scope:
 
-Remaining product gate:
+- produce an accurate public README and current playtest guide;
+- document repository/Release/itch.io publishing boundaries;
+- audit tracked size, ignored Unity caches, credentials and remote state;
+- confirm repository visibility and license before creating the remote;
+- install/authenticate the required GitHub tooling without storing credentials in the repository;
+- push the verified source history and upload a complete zipped Windows build as a GitHub Release;
+- verify remote access before removing any regenerable local cache.
 
-- Hands-on visual review of rail size, readability, live-view latency and whether the single focus hint feels helpful without solving the puzzle for the player.
+Acceptance:
+
+- owner confirms GitHub visibility and license;
+- remote repository contains the intended tracked source and no credentials/caches;
+- `v0.1.0-playtest` Release contains a downloadable Windows x64 ZIP that runs after clean extraction;
+- local repository remains clean and all remote commits are present;
+- only verified regenerable local folders are removed, with reclaimed space reported.
+
+Current evidence:
+
+- local Git worktree was clean at T-038 start and has no remote;
+- 719 tracked files total approximately 26.84 MiB; largest tracked file is 2.18 MiB;
+- no credential-like tracked file match was found by the filename-only safety scan;
+- ignored local data includes Library ~1.72 GiB, Logs ~0.13 GiB and Builds ~0.31 GiB;
+- GitHub CLI is not currently installed;
+- owner confirmed a Public repository with all rights reserved;
+- README, proprietary LICENSE, publishing specification and current four-gallery playtest guide are prepared;
+- the 62.3 MiB Windows candidate ZIP was clean-extracted and remained alive for a 15-second smoke with zero targeted runtime error matches.

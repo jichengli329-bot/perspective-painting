@@ -36,9 +36,11 @@ namespace PerspectivePuzzle.Presentation
 
         /// <summary>Raised on the main thread after each successful sample, carrying the immutable result.</summary>
         public event Action<CompositionScoreResult> Evaluated;
+        public event Action<IReadOnlyList<PieceVisualDiagnostic>> Diagnosed;
 
         [SerializeField] private Camera _compositionCamera;
         [SerializeField] private Texture2D _targetTexture;
+        [SerializeField] private Shader _idShader;
         [SerializeField] private PaintingPieceId[] _pieces = Array.Empty<PaintingPieceId>();
         [SerializeField, Min(1)] private int _width = 256;
         [SerializeField, Min(1)] private int _height = 144;
@@ -74,6 +76,8 @@ namespace PerspectivePuzzle.Presentation
 
         /// <summary>Most recent comparison result; null until the first successful sample.</summary>
         public CompositionScoreResult LatestResult { get; private set; }
+        public IReadOnlyList<PieceVisualDiagnostic> LatestDiagnostics { get; private set; }
+        public IReadOnlyList<PaintingPieceId> Pieces => _pieces;
 
         /// <summary>One cached renderer/submesh with the material to draw it with.</summary>
         private readonly struct RendererDraw
@@ -215,7 +219,9 @@ namespace PerspectivePuzzle.Presentation
             // Reconstructing the policy runs its constructor validation over
             // the serialized weights and thresholds.
             _ = Policy;
-            if (Shader.Find(IdShaderName) == null)
+            if (_idShader == null)
+                _idShader = Shader.Find(IdShaderName);
+            if (_idShader == null)
                 throw new InvalidOperationException($"Shader '{IdShaderName}' was not found; is Assets/Shaders/PaintingObjectId.shader present?");
         }
 
@@ -357,7 +363,9 @@ namespace PerspectivePuzzle.Presentation
             uint[] packed = PackReadbackBytes(bytes, _width, _height);
             CompositionIdBuffer current = CompositionIdBuffer.FromPixels(_width, _height, packed);
             CompositionScoreResult result = CompositionScorer.Compare(_targetBuffer, current, _requiredIds, Policy);
+            LatestDiagnostics = CompositionDiagnostics.Analyze(_targetBuffer, current, _requiredIds);
             LatestResult = result;
+            Diagnosed?.Invoke(LatestDiagnostics);
             Evaluated?.Invoke(result);
         }
 
@@ -375,13 +383,12 @@ namespace PerspectivePuzzle.Presentation
 
             _commandBuffer = new CommandBuffer { name = "PaintingCompositionIdPass" };
 
-            Shader idShader = Shader.Find(IdShaderName);
             _idMaterials = new Dictionary<uint, Material>(_requiredIds.Length);
             _draws.Clear();
             for (int i = 0; i < _requiredIds.Length; i++)
             {
                 uint id = _requiredIds[i];
-                var material = new Material(idShader)
+                var material = new Material(_idShader)
                 {
                     name = $"PaintingId-{id:X6}",
                     hideFlags = HideFlags.HideAndDontSave

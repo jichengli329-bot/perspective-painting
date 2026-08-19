@@ -10,8 +10,9 @@ using PerspectivePuzzle.Presentation;
 namespace PerspectivePuzzle.PlayMode.Tests
 {
     /// <summary>
-    /// T-010C manipulation tests: load the deterministically built Painting
-    /// Prototype scene — which now saves the authored unsolved start layout —
+    /// T-010C manipulation tests: load the deterministically built Red Cliffs
+    /// scene — the first gallery that exposes all eight manipulable pieces with
+    /// depth and rotation enabled, saving the authored unsolved start layout —
     /// and drive the eight manipulable pieces exclusively through the public
     /// APIs of <see cref="PaintingManipulationController"/> — no synthetic
     /// mouse input and no reflection-based transform mutation. The
@@ -38,7 +39,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
     /// </summary>
     public class PaintingManipulationPlayModeTests
     {
-        private const string PaintingPrototypeScenePath = "Assets/Scenes/PaintingPrototype.unity";
+        private const string RedCliffsScenePath = "Assets/Scenes/PaintingRedCliffs.unity";
         private const float SampleTimeoutSeconds = 10f;
         private const float StrongScoreThreshold = 0.97f;
         private const float MaterialScoreDrop = 0.05f;
@@ -63,7 +64,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
         [UnityTest]
         public IEnumerator SceneStartsUnsolvedThenSolvingAllPiecesRecoversStrongScore()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -149,13 +150,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
                 "Solving all pieces must recover the strong score; WeightedScore="
                 + solved.WeightedScore.ToString("F4") + ".");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator BoundedTranslationLowersScoreThenUndoRecoversExactly()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -224,13 +225,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
             Assert.IsTrue(controller.Undo(), "Undo after the clamped translation must succeed.");
             Assert.AreEqual(authoredPosition, bridge.position, "Undo must restore the authored position after clamping.");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator BoundedDepthAdjustmentLowersScoreThenResetRecovers()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -301,13 +302,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
             Assert.IsNull(controller.SelectedPiece, "DeselectPiece must clear the selected piece.");
             Assert.IsFalse(controller.CanUndo, "Deselection must not leave undo state.");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator AllPiecesSelectableThroughPublicApiAndBuildCameraRaycasting()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -388,22 +389,18 @@ namespace PerspectivePuzzle.PlayMode.Tests
                 var resolved = ResolveFromBuildCamera(controller, BuildCameraAimPoint(pieces[i], i));
                 Assert.IsNotNull(resolved,
                     "A Build Camera ray toward " + RequiredPieces[i] + " must hit a configured piece.");
-                if (i == FarMountainIndex)
-                    Assert.AreSame(pieces[MiddleMountainIndex], resolved,
-                        "A Build Camera ray toward occluded " + RequiredPieces[i]
-                        + " must resolve to the nearest visible piece (the Middle Mountain).");
-                else
-                    Assert.AreSame(pieces[i], resolved,
-                        "A Build Camera ray toward " + RequiredPieces[i] + " must resolve to it.");
+                Assert.AreSame(pieces[i], resolved,
+                    "A Build Camera pointer aimed at the visible center of " + RequiredPieces[i]
+                    + " must resolve by visual intent even through overlapping broad colliders.");
             }
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator TranslateAndDepthOnOtherPiecesReduceOwnMetricsThenUndoRestoresHistoricalPiece()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -510,13 +507,13 @@ namespace PerspectivePuzzle.PlayMode.Tests
             Assert.IsNull(controller.SelectedPiece, "DeselectPiece must clear the selected piece.");
             Assert.IsFalse(controller.CanUndo, "Deselection must not leave undo state.");
 
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         [UnityTest]
         public IEnumerator ConstrainedRotationIsQuantizedClampedAndRecoveredByUndoAndReset()
         {
-            SceneManager.LoadScene(PaintingPrototypeScenePath, LoadSceneMode.Single);
+            SceneManager.LoadScene(RedCliffsScenePath, LoadSceneMode.Single);
             yield return null;
 
             var evaluator = FindEvaluator();
@@ -607,7 +604,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
             Assert.AreEqual(authoredLocalScale, root.localScale, "Undo must leave the authored local scale.");
 
             controller.DeselectPiece();
-            yield return UnloadPrototypeScene();
+            yield return UnloadScene();
         }
 
         /// <summary>
@@ -721,41 +718,17 @@ namespace PerspectivePuzzle.PlayMode.Tests
         }
 
         /// <summary>
-        /// Replicates the pointer-selection rule of the controller: casts the
-        /// Build Camera ray against the PaintingPiece layer and resolves the
-        /// closest valid configured piece collider, ignoring hits not
-        /// belonging directly to a configured piece.
+        /// Exercises the controller's real pointer-selection rule at the
+        /// screen projection of a known visible piece point.
         /// </summary>
         private static PaintingManipulablePiece ResolveFromBuildCamera(
             PaintingManipulationController controller, Vector3 aimPoint)
         {
             var buildCamera = GameObject.Find("Build Camera").GetComponent<Camera>();
-            int layer = LayerMask.NameToLayer("PaintingPiece");
-            Ray ray = new Ray(buildCamera.transform.position, (aimPoint - buildCamera.transform.position).normalized);
-            RaycastHit[] hits = Physics.RaycastAll(ray, 100f, 1 << layer);
-
-            float closest = float.PositiveInfinity;
-            PaintingManipulablePiece resolved = null;
-            foreach (RaycastHit hit in hits)
-            {
-                PaintingManipulablePiece piece = null;
-                foreach (var candidate in controller.Pieces)
-                {
-                    if (candidate.SelectionCollider == hit.collider)
-                    {
-                        piece = candidate;
-                        break;
-                    }
-                }
-                if (piece == null)
-                    continue;
-                if (hit.distance < closest)
-                {
-                    closest = hit.distance;
-                    resolved = piece;
-                }
-            }
-            return resolved;
+            Vector3 screen = buildCamera.WorldToScreenPoint(aimPoint);
+            return controller.TryResolvePieceAtScreenPoint(screen, out PaintingManipulablePiece resolved)
+                ? resolved
+                : null;
         }
 
         /// <summary>True when any cached renderer below the piece currently carries a property block (the selection highlight).</summary>
@@ -776,7 +749,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
         private static PaintingCompositionEvaluator FindEvaluator()
         {
             var evaluator = UnityEngine.Object.FindFirstObjectByType<PaintingCompositionEvaluator>();
-            Assert.IsNotNull(evaluator, "PaintingCompositionEvaluator missing from " + PaintingPrototypeScenePath + ".");
+            Assert.IsNotNull(evaluator, "PaintingCompositionEvaluator missing from " + RedCliffsScenePath + ".");
             return evaluator;
         }
 
@@ -787,7 +760,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
         private static PaintingManipulationController FindController()
         {
             var controller = UnityEngine.Object.FindFirstObjectByType<PaintingManipulationController>();
-            Assert.IsNotNull(controller, "PaintingManipulationController missing from " + PaintingPrototypeScenePath + ".");
+            Assert.IsNotNull(controller, "PaintingManipulationController missing from " + RedCliffsScenePath + ".");
             return controller;
         }
 
@@ -845,7 +818,7 @@ namespace PerspectivePuzzle.PlayMode.Tests
             public bool Raised;
         }
 
-        private static IEnumerator UnloadPrototypeScene()
+        private static IEnumerator UnloadScene()
         {
             var prototypeScene = SceneManager.GetActiveScene();
             var cleanupScene = SceneManager.CreateScene("T010BCleanup");

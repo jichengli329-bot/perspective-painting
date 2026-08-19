@@ -2,6 +2,115 @@
 
 Exactly one task may be marked `IN PROGRESS`.
 
+## T-033 - Unified permissions and gallery art conversion
+
+Status: DONE
+
+Owner: Codex.
+
+Goal: make Moon Garden completable without G by exposing its required rotation
+and pavilion controls, then convert all four galleries to one coherent celadon
+hero-asset family in a single candidate.
+
+Completion report:
+
+- Enabled Q/E from Moon Garden onward and added direct stage-three regression
+  for pavilion selection, movement, depth and rotation; locked-stage APIs still
+  reject selection and assist.
+- Updated Moon Garden's Chinese introduction and pause help to disclose Q/E.
+- Promoted the sculpted mountains, continuous cloud pines, connected pavilion
+  and detailed arched bridge to all four galleries while preserving authored
+  transforms, root colliders and image-based completion.
+- Regenerated all affected beauty, Object-ID, silhouette and nine reviewed
+  baseline images together after inspecting every build/composition view.
+- Verification: EditMode 153/153, GPU PlayMode 35/35, authored primary and
+  secondary answers, nine-frame visual regression, correct painting Windows
+  build and 15-second standalone smoke all passed.
+- Known limitation: the project-owned procedural assets are now coherent
+  across the product, but a later store-page-quality pass still benefits from
+  hand-authored DCC models and texture painting.
+- Suggested next task: player-test Moon Garden without G, then judge the whole
+  four-gallery candidate rather than reviewing isolated objects.
+
+## T-032 - Moon Garden depth curriculum
+
+Status: DONE
+
+Owner: Codex.
+
+Goal: replace the second gallery's simultaneous depth guesses with a staged
+bridge, mountain-depth and pavilion-occlusion lesson while preserving visual
+equivalence and keeping rotation locked.
+
+Completion report:
+
+- Added one shared curriculum state used by permissions, guidance and the
+  completion reveal; future-stage pieces cannot be selected or assisted.
+- Kept locked pieces at the authored solution until their stage begins, then
+  restored their stored unsolved pose so earlier lessons remain readable.
+- Preserved tolerant image-based completion and prevented overall score from
+  completing the gallery before the pavilion stage is established.
+- Verification: focused curriculum 1/1, EditMode 153/153, GPU PlayMode 35/35,
+  nine-frame visual regression, Windows build and 15-second standalone smoke
+  all passed.
+- Known limitation: the second gallery still needs the user's final difficulty
+  and learning-flow judgment; automated checks establish correctness, not fun.
+- Suggested next task: player-test Moon Garden without using G and decide
+  whether the mountain stage needs fewer cells, stronger depth labels or a
+  shorter acceptance window.
+
+## T-029 - Unified four-piece hero asset family
+
+Status: DONE
+
+Owner: Codex.
+
+Goal: rebuild Mist Valley's bridge, pavilion, main mountain and cloud pine as
+one visually coherent celadon collectible family without changing interaction
+difficulty.
+
+Completion report:
+
+- Locked one shared production reference and implemented deterministic V3
+  bridge, pavilion, six-mass mountain and continuous-branch cloud-pine assets.
+- Preserved simplified root BoxColliders, lattice placement, transforms and
+  visual-equivalent completion policy while regenerating first-gallery targets.
+- Reviewed and stored both fixed build and composition frames; all nine visual
+  regression frames passed, with zero drift in the other three galleries.
+- Verification: EditMode 153/153, GPU PlayMode 32/32, successful Windows build
+  with zero warnings, and 15-second standalone smoke with no exception match.
+- Known limitation: these are production-oriented project-owned procedural
+  assets, not hand-sculpted Blender models; T-027 remains available for future
+  DCC replacement without changing gameplay.
+- Suggested next task: player review of overall asset quality and first-level
+  readability before applying this family language to later galleries.
+
+## T-027 - Production art infrastructure
+
+Status: DONE
+
+Owner: Codex.
+
+Goal: establish the reusable DCC import contract, fixed-camera visual
+regression gate and conservative generated-asset cleanup before production art
+replaces the procedural benchmark.
+
+Completion report:
+
+- Added the constrained `Assets/Art/SourceModels` import boundary and validator,
+  plus the Blender-to-Unity scale, origin, naming, collision and LOD contract.
+- Added nine reviewed camera baselines, tolerant pixel comparison, numeric
+  report and heatmap outputs with editor and batch entry points.
+- Removed eleven unreferenced T-026 V1 mesh assets after source-name and GUID
+  checks; documented the remaining 28-mesh procedural kit and recovery commit.
+- Verification: model validation passed; nine regenerated visual frames passed;
+  EditMode 153/153 and GPU PlayMode 32/32 passed; Windows build succeeded with
+  zero warnings; 15-second standalone smoke produced no runtime exception match.
+- Known limitation: this creates the production pipeline but does not create
+  Blender-authored hero models; current T-026 art remains the procedural fallback.
+- Suggested next task: after the player reviews T-026, author and integrate only
+  `HERO_ArchBridge_v001` as the first end-to-end DCC asset trial.
+
 ## T-001 — Generate the Unity URP project skeleton
 
 Status: DONE
@@ -349,18 +458,105 @@ Progress report — T-011A:
 - Full GPU-backed PlayMode regression: 19 passed, 0 failed, 0 skipped.
 - Remaining gate: hands-on visual/readability review before marking T-011 complete.
 
+Internal QA — T-011B:
+
+- Balanced Canvas scaling between width and height so the curator rail stays readable without dominating 4:3, 16:9, 16:10 or ultrawide layouts.
+- Added focus-hint hysteresis: a new piece must remain materially worse after a minimum hold window before replacing the current hint, preventing close scores from producing distracting label flicker.
+- Rebuilt the scene and retained a clean 19/19 GPU PlayMode regression.
+
 ### T-012 — Painting reveal and tactile polish
 
-Status: PLANNED
+Status: COMPLETE
 
 Goal: deliver the signature moment: lock the solved arrangement, move the build camera into the composition viewpoint, visually settle the live scene into the painting, then optionally reveal the unusual spatial arrangement from the side.
 
 Gate: a 20–30 second capture communicates the premise without explanatory narration.
 
+Completion report — T-012:
+
+- Completion requires both a real pointer pickup and a stable passing score, preventing transient samples or test/reset helpers from accidentally firing the reveal.
+- Locks manipulation and safely clears any selected/carried visual state before presentation begins.
+- Smoothly carries the Build Camera into the exact Composition Camera pose, fades the curator rail, holds the finished painting under a restrained `PAINTING ALIGNED` wash, then moves to a side perspective with `PERSPECTIVE REVEALED` before leaving the physical construction visible.
+- Uses unscaled deterministic smoothstep timing with no tween dependency and preserves the Composition Camera/evaluator resources.
+- Added direct PlayMode coverage for input lock, exact painting-view alignment and final physical-perspective reveal.
+- Full GPU-backed PlayMode regression: 20 passed, 0 failed, 0 skipped.
+
 ### T-013 — Cycle 2 validation build
 
-Status: PLANNED
+Status: COMPLETE
 
 Goal: run focused EditMode/PlayMode coverage, deterministic visual captures, Windows build and smoke launch, followed by a direct user playtest of the one-painting slice.
 
 Gate: decide from human evidence whether to create a second painting, revise manipulation/scoring, or stop the direction before building content breadth.
+
+Validation report — T-013:
+
+- Added a deterministic Windows x64 development-build command that includes only the painting prototype scene and verifies the executable plus data directory.
+- Fixed a player-only shader stripping failure by serializing the Object-ID shader directly on the composition evaluator; scene validation now rejects a missing explicit reference before a build is attempted.
+- Rebuilt the scene and passed the complete GPU-backed PlayMode suite: 20 passed, 0 failed, 0 skipped.
+- Passed the complete EditMode suite: 121 passed, 0 failed, 0 skipped.
+- Rebuilt and launched the standalone Windows player. It remained responsive throughout the smoke window and its player log contained no missing-shader, null-reference or runtime exception.
+- Windows handoff artifact: `Builds/WindowsPainting/PerspectivePainting.exe`.
+- Engineering validation is complete. The remaining gate is intentionally human: judge the interaction and reveal as a player before expanding content.
+
+### T-014 — Product recovery: frictionless composition
+
+Status: COMPLETE
+
+Goal: replace collision-driven placement with predictable visual composition. Every pointer drag must retain a landable preview, tray edges must behave as soft stops, and scenery overlap must be legal because occlusion is the puzzle language.
+
+Gate: automated all-piece reachability and overlap tests pass, visual captures show no red placement dead zones during normal play, and a standalone build completes repeated pick/place actions without snap-back.
+
+Completion report — T-014:
+
+- Pointer overshoot now meets a footprint-aware soft tray edge and remains landable.
+- Scenery overlap is legal, matching the core occlusion-composition mechanic.
+- The real visual-intent pointer resolver is public and directly regression-tested, so broad decorative colliders cannot silently make visible pieces unselectable.
+- Placement and full GPU PlayMode coverage pass after the interaction change.
+
+### T-015 — Handcrafted diorama art rebuild
+
+Status: COMPLETE
+
+Goal: replace the empty low-poly test installation with a coherent collectible painting table: walnut frame, parchment backdrop, celadon water, layered painted mountain reliefs, detailed trees, pavilion, bridge rails, atmospheric distance layers and restrained gallery lighting.
+
+Progress report — T-015A:
+
+- Added the generated art-direction keyframe under `docs/art-direction` as the visual quality reference.
+- Rebuilt the table and backdrop as framed walnut-and-gold physical furniture.
+- Replaced cone-only mountains with reusable extruded painted-relief meshes and layered glaze/ink accents.
+- Added layered tree crowns, wood trunks, a jade pavilion roof, structural lintels, bridge rails and gold focal accents.
+- Added soft key shadows and static distant paper-cut mountain layers.
+- Regenerated beauty, Object-ID and silhouette targets from the new authored solution.
+- Full validation: 121 EditMode and 21 GPU PlayMode tests passed; Windows build succeeded and its standalone smoke process remained responsive with a clean runtime log.
+
+Completion report — T-015 through T-018 release candidate:
+
+- Replaced the abrupt prototype entry with a restrained museum opening, chapter title and concise interaction language.
+- Added reset, undo, completion hold, next-gallery hand-off and final collection-complete state.
+- Added two further authored occlusion compositions, Moon Garden and Red Cliffs, each with its own beauty, silhouette and Object-ID target and deterministic scene.
+- Added a reusable build/capture pipeline that creates and validates all three galleries from one art and interaction baseline.
+- DeepSeek v4 Flash supplied focused flow tests from the shared task contract; Codex reviewed and integrated them.
+- Final validation: 121/121 EditMode and 24/24 GPU PlayMode tests passed. Windows build succeeded with zero build warnings, and the standalone player remained alive and responsive through the smoke window with no runtime exception match.
+- Release candidate: `Builds/WindowsPainting/PerspectivePainting.exe`.
+
+### T-019–T-023 — Solvability, creative guidance, and dual-view validation
+
+Status: COMPLETE
+
+- Added pure per-piece visual diagnostics for normalized direction, apparent size/depth, principal-axis rotation, occlusion and near alignment without comparing authored transforms.
+- Rebuilt the curriculum: Mist Valley exposes four pieces with depth/rotation locked, Moon Garden exposes six with depth enabled, and Red Cliffs exposes all eight controls.
+- Added selected-piece gold target outlines, hold-H directional clues, active-piece-only focus, and non-snapping near-alignment confirmation.
+- Added Twin Seal as a fourth gallery with a primary painting plus a right-side four-piece silhouette goal. Completion requires both independent goals and reveals primary, secondary, then physical construction.
+- DeepSeek v4 Flash max supplied diagnostic and curriculum test breadth under bounded task contracts; Codex reviewed, integrated and ran Unity acceptance.
+- Final validation: 148/148 EditMode and 28/28 GPU PlayMode tests passed. The Windows build contains all four galleries, reported success with zero build warnings, and remained responsive through a 15-second standalone smoke window without runtime exception matches.
+- Release candidate: `Builds/WindowsPainting/PerspectivePainting.exe`.
+# T-038 — Public repository and playtest release preparation
+
+Status: IN PROGRESS
+
+Prepare accurate public documentation, audit the repository for credentials and oversized/generated content, confirm repository visibility and licensing with the product owner, publish the source to GitHub, attach a clean Windows x64 playtest ZIP to `v0.1.0-playtest`, verify the remote artifacts, and only then remove regenerable local caches.
+
+Active contract: `tasks/ACTIVE.md`. Publishing details: `docs/PUBLISHING_ZH.md`.
+
+---

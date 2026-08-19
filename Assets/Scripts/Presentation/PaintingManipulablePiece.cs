@@ -24,6 +24,7 @@ namespace PerspectivePuzzle.Presentation
     {
         private const string BaseColorProperty = "_BaseColor";
         private static readonly Color HighlightTint = new Color(1f, 0.82f, 0.62f);
+        private static readonly Color AlignedTint = new Color(1f, 0.72f, 0.22f);
         private const float HighlightAmount = 0.22f;
 
         [SerializeField] private bool _configured;
@@ -34,6 +35,8 @@ namespace PerspectivePuzzle.Presentation
         private Renderer[] _renderers = Array.Empty<Renderer>();
         private Collider _collider;
         private bool _selected;
+        private bool _nearAligned;
+        private bool _alignmentLockSuppressed;
         private bool _highlightApplied;
         private readonly List<RendererBlockState> _blockStates = new List<RendererBlockState>();
 
@@ -51,6 +54,7 @@ namespace PerspectivePuzzle.Presentation
 
         /// <summary>Local scale at deterministic configuration time.</summary>
         public Vector3 AuthoredLocalScale => _authoredLocalScale;
+        public bool IsNearAligned => _nearAligned;
 
         /// <summary>Renderers below the root, including inactive ones; empty until configured.</summary>
         public IReadOnlyList<Renderer> Renderers => _renderers;
@@ -82,7 +86,7 @@ namespace PerspectivePuzzle.Presentation
 
         private void OnEnable()
         {
-            if (_selected)
+            if (_selected || _nearAligned)
                 ApplyHighlight();
         }
 
@@ -190,10 +194,34 @@ namespace PerspectivePuzzle.Presentation
             if (selected == _selected)
                 return;
             _selected = selected;
-            if (_selected)
-                ApplyHighlight();
-            else
-                RestorePropertyBlocks();
+            if (!selected) _alignmentLockSuppressed = false;
+            RefreshHighlight();
+        }
+
+        /// <summary>Shows a warm-gold confirmation without locking or snapping the piece.</summary>
+        public void SetNearAligned(bool nearAligned)
+        {
+            if (nearAligned && (_selected || _alignmentLockSuppressed)) return;
+            if (_nearAligned == nearAligned) return;
+            _nearAligned = nearAligned;
+            RefreshHighlight();
+        }
+
+        /// <summary>First click on a completed layer unlocks it without beginning a drag.</summary>
+        public void UnlockAlignment()
+        {
+            _alignmentLockSuppressed = true;
+            if (_nearAligned)
+            {
+                _nearAligned = false;
+                RefreshHighlight();
+            }
+        }
+
+        private void RefreshHighlight()
+        {
+            RestorePropertyBlocks();
+            if (_selected || _nearAligned) ApplyHighlight();
         }
 
         private void ApplyHighlight()
@@ -220,7 +248,9 @@ namespace PerspectivePuzzle.Presentation
                 var block = new MaterialPropertyBlock();
                 if (hadBlock)
                     renderer.GetPropertyBlock(block);
-                block.SetColor(BaseColorProperty, Color.Lerp(baseColor, HighlightTint, HighlightAmount));
+                Color tint = _nearAligned ? AlignedTint : HighlightTint;
+                block.SetColor(BaseColorProperty, Color.Lerp(baseColor, tint,
+                    _nearAligned ? 0.34f : HighlightAmount));
                 renderer.SetPropertyBlock(block);
 
                 _blockStates.Add(new RendererBlockState(renderer, hadBlock, prior));

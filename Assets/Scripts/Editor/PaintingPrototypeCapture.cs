@@ -65,7 +65,22 @@ namespace PerspectivePuzzle.EditorTools
         [MenuItem("Tools/PerspectivePuzzle/Capture Painting Prototype")]
         public static void CaptureAll()
         {
-            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            CaptureScene(ScenePath, "MistValleyBridge", "PaintingPrototype");
+        }
+
+        [MenuItem("Tools/PerspectivePuzzle/Capture All Painting Galleries")]
+        public static void CaptureAllGalleries()
+        {
+            CaptureScene("Assets/Scenes/PaintingPrototype.unity", "MistValleyBridge", "PaintingPrototype");
+            CaptureScene("Assets/Scenes/PaintingMoonGarden.unity", "MoonGarden", "PaintingMoonGarden");
+            CaptureScene("Assets/Scenes/PaintingRedCliffs.unity", "RedCliffs", "PaintingRedCliffs");
+            CaptureScene("Assets/Scenes/PaintingTwinSeal.unity", "TwinSeal", "PaintingTwinSeal");
+            Debug.Log("All painting gallery targets captured.");
+        }
+
+        private static void CaptureScene(string scenePath, string referenceStem, string reviewStem)
+        {
+            EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
             // T-010C saves the playable scene deliberately unsolved. Reference
             // and machine-target captures must always depict the hidden
@@ -80,22 +95,42 @@ namespace PerspectivePuzzle.EditorTools
                 throw new InvalidOperationException("PaintingPrototype capture failed: Composition Camera missing.");
 
             // Unchanged deterministic 1280x720 review outputs.
-            Capture(buildCamera, BuildOutputPath);
-            Capture(compositionCamera, CompositionOutputPath);
+            Capture(buildCamera, "Logs/VisualReviews/" + reviewStem + "_Build.png");
+            Capture(compositionCamera, "Logs/VisualReviews/" + reviewStem + "_Composition.png");
 
             // T-008B machine-readable target artifacts from the Composition Camera.
             var scenery = ValidateTargets();
-            Capture(compositionCamera, BeautyOutputPath);
-            CaptureTarget(compositionCamera, scenery, ObjectIdOutputPath, objectId: true);
-            CaptureTarget(compositionCamera, scenery, SilhouetteOutputPath, objectId: false);
+            string prefix = "Assets/Content/PaintingPrototype/References/" + referenceStem;
+            string beautyPath = prefix + "_Beauty.png";
+            string objectIdPath = prefix + "_ObjectId.png";
+            string silhouettePath = prefix + "_Silhouette.png";
+            Capture(compositionCamera, beautyPath);
+            CaptureTarget(compositionCamera, scenery, objectIdPath, objectId: true);
+            CaptureTarget(compositionCamera, scenery, silhouettePath, objectId: false);
 
             AssetDatabase.Refresh();
             // T-009B2: the evaluator and PlayMode tests read the Object-ID
             // (and silhouette) masks back, so those imports must be readable;
             // the beauty reference does not need to be.
-            ConfigureTextureImport(BeautyOutputPath, pointFilter: false, sRGB: true, readable: false);
-            ConfigureTextureImport(ObjectIdOutputPath, pointFilter: true, sRGB: false, readable: true);
-            ConfigureTextureImport(SilhouetteOutputPath, pointFilter: true, sRGB: false, readable: true);
+            ConfigureTextureImport(beautyPath, pointFilter: false, sRGB: true, readable: false);
+            ConfigureTextureImport(objectIdPath, pointFilter: true, sRGB: false, readable: true);
+            ConfigureTextureImport(silhouettePath, pointFilter: true, sRGB: false, readable: true);
+
+            if (referenceStem == "TwinSeal")
+            {
+                Camera secondary = FindCameraByName("Secondary Composition Camera");
+                if (secondary == null) throw new InvalidOperationException("Twin Seal secondary camera missing.");
+                string[] names = { "Far Mountain", "Middle Mountain", "Pavilion", "Arch Bridge" };
+                Color[] colors = { ObjectIdColors[1], ObjectIdColors[2], ObjectIdColors[5], ObjectIdColors[6] };
+                string secondaryIds = "Assets/Content/PaintingPrototype/References/TwinSeal_SecondaryObjectId.png";
+                string secondarySilhouette = "Assets/Content/PaintingPrototype/References/TwinSeal_SecondarySilhouette.png";
+                Capture(secondary, "Logs/VisualReviews/PaintingTwinSeal_Secondary.png");
+                CaptureTarget(secondary, scenery, secondaryIds, true, names, colors);
+                CaptureTarget(secondary, scenery, secondarySilhouette, false, names, colors);
+                AssetDatabase.Refresh();
+                ConfigureTextureImport(secondaryIds, pointFilter: true, sRGB: false, readable: true);
+                ConfigureTextureImport(secondarySilhouette, pointFilter: true, sRGB: false, readable: true);
+            }
         }
 
         private static void RestoreAuthoredSolutionForCapture()
@@ -210,7 +245,8 @@ namespace PerspectivePuzzle.EditorTools
         /// and each piece root's renderers get one stable opaque URP Unlit
         /// material. All scene state is restored in finally blocks.
         /// </summary>
-        private static void CaptureTarget(Camera camera, Transform scenery, string outputPath, bool objectId)
+        private static void CaptureTarget(Camera camera, Transform scenery, string outputPath, bool objectId,
+            string[] pieceNames = null, Color[] objectColors = null)
         {
             const int width = 256;
             const int height = 144;
@@ -229,7 +265,14 @@ namespace PerspectivePuzzle.EditorTools
                 foreach (var renderer in allRenderers)
                 {
                     savedEnabled[renderer] = renderer.enabled;
-                    if (!renderer.transform.IsChildOf(scenery))
+                    bool selected = renderer.transform.IsChildOf(scenery);
+                    if (selected && pieceNames != null)
+                    {
+                        selected = false;
+                        for (int i = 0; i < pieceNames.Length; i++)
+                            if (renderer.transform.IsChildOf(scenery.Find(pieceNames[i]))) { selected = true; break; }
+                    }
+                    if (!selected)
                         renderer.enabled = false;
                 }
 
@@ -237,12 +280,14 @@ namespace PerspectivePuzzle.EditorTools
                 camera.backgroundColor = Color.black;
                 camera.GetUniversalAdditionalCameraData().renderPostProcessing = false;
 
-                for (int i = 0; i < RequiredPieces.Length; i++)
+                string[] names = pieceNames ?? RequiredPieces;
+                Color[] colors = objectColors ?? ObjectIdColors;
+                for (int i = 0; i < names.Length; i++)
                 {
-                    var color = objectId ? ObjectIdColors[i] : SilhouetteWhite;
-                    var material = CreateTemporaryUnlitMaterial(color, RequiredPieces[i]);
+                    var color = objectId ? colors[i] : SilhouetteWhite;
+                    var material = CreateTemporaryUnlitMaterial(color, names[i]);
                     tempMaterials.Add(material);
-                    foreach (var renderer in scenery.Find(RequiredPieces[i]).GetComponentsInChildren<Renderer>(true))
+                    foreach (var renderer in scenery.Find(names[i]).GetComponentsInChildren<Renderer>(true))
                     {
                         savedMaterials[renderer] = renderer.sharedMaterials;
                         renderer.sharedMaterials = new[] { material };

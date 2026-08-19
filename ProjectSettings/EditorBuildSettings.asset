@@ -14,5 +14,14 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/PaintingPrototype.unity
     guid: dee9b2e099040434fbd6a76e59a7adb1
+  - enabled: 1
+    path: Assets/Scenes/PaintingMoonGarden.unity
+    guid: 29331845d53ed0d40a9a1cec70753372
+  - enabled: 1
+    path: Assets/Scenes/PaintingRedCliffs.unity
+    guid: 6633fc2844aa59f4a9c876b0ed28daf5
+  - enabled: 1
+    path: Assets/Scenes/PaintingTwinSeal.unity
+    guid: cdfda7a849dfed94a918ee1a015ff13a
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

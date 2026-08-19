@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using PerspectivePuzzle.Domain;
 
 namespace PerspectivePuzzle.Presentation
 {
@@ -56,6 +57,15 @@ namespace PerspectivePuzzle.Presentation
     /// </summary>
     public sealed class PaintingManipulationController : MonoBehaviour
     {
+        public enum DepthBand { Far, Middle, Near }
+        /// <summary>Raised only by actual pointer pickup, not deterministic public test/reset helpers.</summary>
+        public event Action PlayerInteracted;
+        public event Action<PaintingManipulablePiece> PlacementStarted;
+        public event Action<PaintingManipulablePiece, bool> PlacementReleased;
+        public event Action UndoPerformed;
+        public event Action ResetPerformed;
+        public event Action<PaintingManipulablePiece> AssistPerformed;
+
         private const float MaxRayDistance = 100f;
 
         /// <summary>Overlap/containment tolerance in world units; touching within this is allowed.</summary>
@@ -76,6 +86,8 @@ namespace PerspectivePuzzle.Presentation
         [SerializeField, Min(0.05f)] private float _wheelBurstWindowSeconds = 0.45f;
         [SerializeField, Min(1f)] private float _rotationStepDegrees = 15f;
         [SerializeField, Min(1f)] private float _maxRotationOffsetDegrees = 45f;
+        [SerializeField] private bool _allowDepthAdjustment = true;
+        [SerializeField] private bool _allowRotation = true;
 
         // Physical placement configuration: shared world-XZ rectangle, surface
         // Y, pickup lift, follow/settle timings and preview materials.
@@ -86,6 +98,10 @@ namespace PerspectivePuzzle.Presentation
         [SerializeField, Min(0.01f)] private float _settleDuration = 0.25f;
         [SerializeField] private Material _validPreviewMaterial;
         [SerializeField] private Material _invalidPreviewMaterial;
+        [SerializeField, Min(2)] private int _latticeColumns;
+        [SerializeField, Min(2)] private int _latticeDepthRows;
+        [SerializeField, Min(0.05f)] private float _latticeColumnSpacing;
+        [SerializeField, Min(0.05f)] private float _latticeDepthSpacing;
 
         private bool _configured;
         private bool _placementConfigured;
@@ -112,9 +128,18 @@ namespace PerspectivePuzzle.Presentation
         private PieceOperationState? _prePickupUndoState;
         private Plane _surfacePlane;
         private PaintingPlacementPreview _placementPreview;
+        private bool _inputLocked;
+        private PlacementLattice _lattice;
+        private readonly HashSet<PaintingManipulablePiece> _temporarilyUnavailable = new();
+        private PaintingManipulablePiece _solutionMagnetPiece;
+        private float _solutionMagnetRadius;
 
         /// <summary>True once <see cref="Configure"/> succeeded; all input and manipulation is gated on this.</summary>
         public bool IsConfigured => _configured;
+        public bool InputLocked => _inputLocked;
+        public bool AllowsDepthAdjustment => _allowDepthAdjustment;
+        public bool AllowsRotation => _allowRotation;
+        public float RotationStepDegrees => _rotationStepDegrees;
 
         /// <summary>True while a piece is selected.</summary>
         public bool IsSelected => _configured && _selectedPiece != null;
@@ -146,6 +171,22 @@ namespace PerspectivePuzzle.Presentation
 
         /// <summary>The horizontal surface Y every piece ultimately rests on.</summary>
         public float SurfaceY => _surfaceY;
+        public bool UsesPlacementLattice => _lattice != null;
+        public int LatticeColumns => _lattice != null ? _lattice.Columns : 0;
+        public int LatticeDepthRows => _lattice != null ? _lattice.DepthRows : 0;
+        public float LatticeColumnSpacing => _lattice != null ? _lattice.ColumnSpacing : 0f;
+        public float LatticeDepthSpacing => _lattice != null ? _lattice.DepthSpacing : 0f;
+        public DepthBand SelectedDepthBand
+        {
+            get
+            {
+                if (_selectedPiece == null || _lattice == null) return DepthBand.Middle;
+                float delta = _selectedPiece.Root.position.z - _selectedPiece.AuthoredPosition.z;
+                if (delta > _lattice.DepthSpacing * 0.5f) return DepthBand.Near;
+                if (delta < -_lattice.DepthSpacing * 0.5f) return DepthBand.Far;
+                return DepthBand.Middle;
+            }
+        }
 
         /// <summary>The Arch Bridge piece kept as the explicit compatibility reference; null until configured.</summary>
         public PaintingManipulablePiece Bridge => _bridge;
@@ -155,6 +196,31 @@ namespace PerspectivePuzzle.Presentation
 
         /// <summary>The ordered configured manipulable pieces.</summary>
         public IReadOnlyList<PaintingManipulablePiece> Pieces => _pieces;
+        public PaintingManipulablePiece SolutionMagnetPiece => _solutionMagnetPiece;
+        public float SolutionMagnetRadius => _solutionMagnetRadius;
+        public bool IsPieceAvailable(PaintingManipulablePiece piece) => piece != null
+            && Array.IndexOf(_pieces, piece) >= 0 && !_temporarilyUnavailable.Contains(piece);
+
+        public void SetPieceAvailable(PaintingManipulablePiece piece, bool available)
+        {
+            if (piece == null || Array.IndexOf(_pieces, piece) < 0)
+                throw new ArgumentException("The piece must be configured by this controller.", nameof(piece));
+            if (available) _temporarilyUnavailable.Remove(piece);
+            else
+            {
+                _temporarilyUnavailable.Add(piece);
+                if (_selectedPiece == piece) DeselectPiece();
+            }
+            if (piece.SelectionCollider != null) piece.SelectionCollider.enabled = available;
+        }
+
+        public void ConfigureSolutionMagnet(PaintingManipulablePiece piece, float radius)
+        {
+            if (piece != null && Array.IndexOf(_pieces, piece) < 0)
+                throw new ArgumentException("The magnet piece must be configured by this controller.", nameof(piece));
+            _solutionMagnetPiece = radius > 0f ? piece : null;
+            _solutionMagnetRadius = Mathf.Max(0f, radius);
+        }
 
         /// <summary>Authored world-space movement bounds every compatibility translation is clamped to.</summary>
         public Bounds MovementBounds => _movementBounds;
@@ -190,6 +256,9 @@ namespace PerspectivePuzzle.Presentation
                 {
                     ConfigurePlacement(_placementRectangle, _surfaceY, _liftHeight,
                         _followSmoothTime, _settleDuration, _validPreviewMaterial, _invalidPreviewMaterial);
+                    if (_latticeColumns >= 2 && _latticeDepthRows >= 2)
+                        ConfigureLattice(_latticeColumns, _latticeDepthRows,
+                            _latticeColumnSpacing, _latticeDepthSpacing);
                 }
             }
         }
@@ -206,7 +275,7 @@ namespace PerspectivePuzzle.Presentation
 
         private void Update()
         {
-            if (!_configured || !isActiveAndEnabled)
+            if (!_configured || !isActiveAndEnabled || _inputLocked)
                 return;
 
             if (_settling)
@@ -237,12 +306,21 @@ namespace PerspectivePuzzle.Presentation
                 {
                     if (TryHitPiece(out PaintingManipulablePiece piece, out _))
                     {
+                        if (piece.IsNearAligned)
+                        {
+                            piece.UnlockAlignment();
+                            SelectPiece(piece);
+                            return;
+                        }
                         // A press on a configured root collider begins the
                         // pickup, preserving the grab offset from the press
                         // ray; without placement configuration it is a
                         // selection-only click.
                         if (BeginPlacement(piece))
+                        {
+                            PlayerInteracted?.Invoke();
                             CapturePointerGrabOffset();
+                        }
                         else
                             SelectPiece(piece);
                     }
@@ -261,6 +339,8 @@ namespace PerspectivePuzzle.Presentation
                     TryRotate(_rotationStepDegrees);
                 if (Input.GetKeyDown(KeyCode.Escape))
                     DeselectPiece();
+                if (_allowDepthAdjustment && !Mathf.Approximately(Input.mouseScrollDelta.y, 0f))
+                    TryAdjustDepth(Input.mouseScrollDelta.y * _wheelSensitivity);
             }
 
             if (_carriedPiece != null && !_settling)
@@ -365,7 +445,10 @@ namespace PerspectivePuzzle.Presentation
 
             // Start from a clean interaction state.
             if (_selectedPiece != null)
+            {
+                _selectedPiece.SetNearAligned(false);
                 _selectedPiece.SetSelected(false);
+            }
             _selectedPiece = null;
             CleanupCarry();
             _depthOffset = 0f;
@@ -422,6 +505,48 @@ namespace PerspectivePuzzle.Presentation
             _placementConfigured = true;
         }
 
+        public void ConfigureLattice(int columns, int depthRows, float columnSpacing = 0f, float depthSpacing = 0f)
+        {
+            if (!_placementConfigured)
+                throw new InvalidOperationException("The lattice must be configured after physical placement.");
+            _lattice = new PlacementLattice(columns, depthRows,
+                _placementRectangle.xMin, _placementRectangle.xMax,
+                _placementRectangle.yMin, _placementRectangle.yMax,
+                columnSpacing, depthSpacing);
+            _latticeColumns = columns;
+            _latticeDepthRows = depthRows;
+            _latticeColumnSpacing = _lattice.ColumnSpacing;
+            _latticeDepthSpacing = _lattice.DepthSpacing;
+        }
+
+        /// <summary>
+        /// Locks or unlocks player input for completion presentation. Locking
+        /// safely restores an in-flight pickup and clears selection so no
+        /// highlighted or half-carried piece leaks into the reveal.
+        /// </summary>
+        public void SetInputLocked(bool locked)
+        {
+            if (_inputLocked == locked)
+                return;
+            _inputLocked = locked;
+            if (!locked)
+                return;
+            CleanupCarry();
+            if (_selectedPiece != null)
+            {
+                _selectedPiece.SetNearAligned(false);
+                _selectedPiece.SetSelected(false);
+                _selectedPiece = null;
+            }
+        }
+
+        /// <summary>Applies the authored per-gallery interaction curriculum.</summary>
+        public void ConfigureAbilities(bool allowDepthAdjustment, bool allowRotation)
+        {
+            _allowDepthAdjustment = allowDepthAdjustment;
+            _allowRotation = allowRotation;
+        }
+
         /// <summary>Selects the Arch Bridge piece (compatibility helper for the bridge-focused tests).</summary>
         public void SelectPiece()
         {
@@ -444,11 +569,16 @@ namespace PerspectivePuzzle.Presentation
                 return;
             if (Array.IndexOf(_pieces, piece) < 0)
                 throw new ArgumentException("The piece must be one of the configured manipulable pieces.", nameof(piece));
+            if (!IsPieceAvailable(piece))
+                return;
             if (_selectedPiece == piece)
                 return;
 
             if (_selectedPiece != null)
+            {
+                _selectedPiece.SetNearAligned(false);
                 _selectedPiece.SetSelected(false);
+            }
             _selectedPiece = piece;
             piece.SetSelected(true);
             // A new selection starts a fresh depth burst so the first wheel
@@ -464,9 +594,21 @@ namespace PerspectivePuzzle.Presentation
                 return;
             if (_selectedPiece != null)
             {
+                _selectedPiece.SetNearAligned(false);
                 _selectedPiece.SetSelected(false);
                 _selectedPiece = null;
             }
+        }
+
+        /// <summary>
+        /// Resolves the configured piece a player intends to pick at a screen
+        /// position. Overlapping broad colliders are ranked by projected
+        /// visual-center proximity, with ray distance only as a tie-breaker.
+        /// Exposed so visual changes can regression-test the real input rule.
+        /// </summary>
+        public bool TryResolvePieceAtScreenPoint(Vector2 screenPoint, out PaintingManipulablePiece piece)
+        {
+            return TryHitPiece(screenPoint, out piece, out _);
         }
 
         /// <summary>
@@ -514,12 +656,30 @@ namespace PerspectivePuzzle.Presentation
         /// </summary>
         public bool TryAdjustDepth(float signedDelta)
         {
-            if (!_configured || _carriedPiece != null || _settling)
+            if (!_configured || !_allowDepthAdjustment || _carriedPiece != null || _settling)
                 return false;
             if (Mathf.Approximately(signedDelta, 0f))
                 return false;
             if (_selectedPiece == null)
                 SelectPiece(_bridge); // T-010A compatibility: operations default to the Arch Bridge
+
+            if (_lattice != null)
+            {
+                PlacementLatticePoint currentCell = _lattice.SnapAround(
+                    _selectedPiece.AuthoredPosition.x, _selectedPiece.AuthoredPosition.z,
+                    _selectedPiece.Root.position.x, _selectedPiece.Root.position.z);
+                int nextOffset = currentCell.DepthRow + Math.Sign(signedDelta);
+                Vector3 requested = _selectedPiece.Root.position;
+                requested.z = _selectedPiece.AuthoredPosition.z + nextOffset * _lattice.DepthSpacing;
+                Vector3 target = SnapCandidate(_selectedPiece,
+                    ClampCandidateToPlacementArea(_selectedPiece, requested));
+                if (Vector3.Distance(target, _selectedPiece.Root.position) < 0.0001f)
+                    return false;
+                BeginUndoableOperation();
+                _selectedPiece.Root.position = target;
+                SynchronizeDepthOffset();
+                return true;
+            }
 
             SynchronizeDepthOffset();
             float newDepth = Mathf.Clamp(
@@ -556,7 +716,7 @@ namespace PerspectivePuzzle.Presentation
         /// </summary>
         public bool TryRotate(float signedDegrees)
         {
-            if (!_configured)
+            if (!_configured || !_allowRotation)
                 return false;
             if (_carriedPiece != null && !_settling)
                 return RotateCarried(signedDegrees);
@@ -600,6 +760,7 @@ namespace PerspectivePuzzle.Presentation
             _lastDepthChangeTime = float.NegativeInfinity;
             if (_selectedPiece != null)
                 SynchronizeDepthOffset();
+            UndoPerformed?.Invoke();
             return true;
         }
 
@@ -620,6 +781,29 @@ namespace PerspectivePuzzle.Presentation
             BeginUndoableOperation();
             _selectedPiece.RestoreAuthored();
             SynchronizeDepthOffset();
+            ResetPerformed?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Optional accessibility assist: places one explicitly requested,
+        /// currently playable piece at its authored visual solution. The
+        /// operation is undoable and never solves any other piece.
+        /// </summary>
+        public bool AssistPlace(PaintingManipulablePiece piece)
+        {
+            if (!_configured || _inputLocked || _carriedPiece != null || _settling)
+                return false;
+            if (!IsPieceAvailable(piece))
+                return false;
+
+            SelectPiece(piece);
+            BeginUndoableOperation();
+            piece.RestoreAuthored();
+            SynchronizeDepthOffset();
+            piece.SetNearAligned(true);
+            PlayerInteracted?.Invoke();
+            AssistPerformed?.Invoke(piece);
             return true;
         }
 
@@ -638,7 +822,7 @@ namespace PerspectivePuzzle.Presentation
         {
             if (!_configured || !_placementConfigured || _carriedPiece != null || _settling)
                 return false;
-            if (piece == null || Array.IndexOf(_pieces, piece) < 0)
+            if (!IsPieceAvailable(piece))
                 return false;
 
             if (_selectedPiece != piece)
@@ -659,12 +843,16 @@ namespace PerspectivePuzzle.Presentation
             _grabOffset = Vector3.zero;
             _carryVelocity = Vector3.zero;
 
-            // The landing candidate initially equals the piece root projected to SurfaceY.
-            _candidate = new Vector3(_pickupPosition.x, _surfaceY, _pickupPosition.z);
+            // Keep every pickup immediately landable. The placement helper
+            // constrains the complete footprint to the tray instead of making
+            // the player hunt for a small valid region.
+            _candidate = SnapCandidate(piece, ClampCandidateToPlacementArea(
+                piece, new Vector3(_pickupPosition.x, _surfaceY, _pickupPosition.z)));
 
             _placementPreview = PaintingPlacementPreview.Create(piece, _validPreviewMaterial, _invalidPreviewMaterial);
             _placementPreview.Show(_candidate, piece.Root.rotation, piece.Root.localScale,
                 ComputePlacementValidity(piece, _candidate));
+            PlacementStarted?.Invoke(piece);
             return true;
         }
 
@@ -680,7 +868,8 @@ namespace PerspectivePuzzle.Presentation
         {
             if (!_configured || _carriedPiece == null || _settling)
                 return;
-            _candidate = new Vector3(worldPosition.x, _surfaceY, worldPosition.z);
+            _candidate = SnapCandidate(_carriedPiece, ClampCandidateToPlacementArea(
+                _carriedPiece, new Vector3(worldPosition.x, _surfaceY, worldPosition.z)));
             RefreshPlacementPreview();
         }
 
@@ -697,7 +886,9 @@ namespace PerspectivePuzzle.Presentation
             if (!_configured || _carriedPiece == null || _settling)
                 return false;
             bool valid = ComputePlacementValidity(_carriedPiece, _candidate);
+            PaintingManipulablePiece releasedPiece = _carriedPiece;
             BeginSettle(valid);
+            PlacementReleased?.Invoke(releasedPiece, valid);
             return valid;
         }
 
@@ -767,6 +958,7 @@ namespace PerspectivePuzzle.Presentation
             if (Mathf.Approximately(targetYaw, currentYaw))
                 return false;
             _carriedPiece.Root.rotation = _carriedPiece.AuthoredRotation * Quaternion.Euler(0f, targetYaw, 0f);
+            _candidate = SnapCandidate(_carriedPiece, ClampCandidateToPlacementArea(_carriedPiece, _candidate));
             RefreshPlacementPreview();
             return true;
         }
@@ -793,18 +985,63 @@ namespace PerspectivePuzzle.Presentation
                 || max.y > _placementRectangle.yMax + PlacementEpsilon)
                 return false;
 
-            for (int i = 0; i < _pieces.Length; i++)
-            {
-                PaintingManipulablePiece other = _pieces[i];
-                if (other == null || other == piece)
-                    continue;
-                if (!TryGetXzFootprint(other, other.Root.position, other.Root.rotation, out Vector2 otherMin, out Vector2 otherMax))
-                    continue;
-                if (min.x < otherMax.x - PlacementEpsilon && otherMin.x < max.x - PlacementEpsilon
-                    && min.y < otherMax.y - PlacementEpsilon && otherMin.y < max.y - PlacementEpsilon)
-                    return false;
-            }
             return true;
+        }
+
+        /// <summary>
+        /// Moves a requested root position only as far as necessary for the
+        /// complete rotated footprint to remain on the tray. Other scenery is
+        /// deliberately ignored because overlap creates the target painting.
+        /// </summary>
+        private Vector3 ClampCandidateToPlacementArea(PaintingManipulablePiece piece, Vector3 requested)
+        {
+            requested.y = _surfaceY;
+            if (!_placementConfigured
+                || !TryGetXzFootprint(piece, requested, piece.Root.rotation, out Vector2 min, out Vector2 max))
+                return requested;
+
+            float correctionX = 0f;
+            float correctionZ = 0f;
+            if (min.x < _placementRectangle.xMin)
+                correctionX += _placementRectangle.xMin - min.x;
+            if (max.x > _placementRectangle.xMax)
+                correctionX += _placementRectangle.xMax - max.x;
+            if (min.y < _placementRectangle.yMin)
+                correctionZ += _placementRectangle.yMin - min.y;
+            if (max.y > _placementRectangle.yMax)
+                correctionZ += _placementRectangle.yMax - max.y;
+            requested.x += correctionX;
+            requested.z += correctionZ;
+            return requested;
+        }
+
+        private Vector3 SnapCandidate(PaintingManipulablePiece piece, Vector3 requested)
+        {
+            if (_lattice == null) return requested;
+            if (piece == _solutionMagnetPiece && _solutionMagnetRadius > 0f)
+            {
+                Vector2 delta = new Vector2(requested.x - piece.AuthoredPosition.x,
+                    requested.z - piece.AuthoredPosition.z);
+                if (delta.sqrMagnitude <= _solutionMagnetRadius * _solutionMagnetRadius)
+                {
+                    requested.x = piece.AuthoredPosition.x;
+                    requested.z = piece.AuthoredPosition.z;
+                    return ClampCandidateToPlacementArea(piece, requested);
+                }
+            }
+            PlacementLatticePoint point = _lattice.SnapAround(
+                piece.AuthoredPosition.x, piece.AuthoredPosition.z, requested.x, requested.z);
+            requested.x = point.X;
+            requested.z = point.Z;
+            Vector3 clamped = ClampCandidateToPlacementArea(piece, requested);
+            // A large footprint can make an outer lattice line unusable.
+            // Re-snap the footprint-corrected root so tray edges never create
+            // a tiny off-grid partial step.
+            point = _lattice.SnapAround(piece.AuthoredPosition.x, piece.AuthoredPosition.z,
+                clamped.x, clamped.z);
+            clamped.x = point.X;
+            clamped.z = point.Z;
+            return ClampCandidateToPlacementArea(piece, clamped);
         }
 
         /// <summary>
@@ -952,9 +1189,14 @@ namespace PerspectivePuzzle.Presentation
         /// </summary>
         private bool TryHitPiece(out PaintingManipulablePiece piece, out RaycastHit hit)
         {
+            return TryHitPiece(Input.mousePosition, out piece, out hit);
+        }
+
+        private bool TryHitPiece(Vector2 screenPoint, out PaintingManipulablePiece piece, out RaycastHit hit)
+        {
             piece = null;
             hit = default;
-            Ray ray = _buildCamera.ScreenPointToRay(Input.mousePosition);
+            Ray ray = _buildCamera.ScreenPointToRay(screenPoint);
             RaycastHit[] hits = Physics.RaycastAll(ray, MaxRayDistance, _selectionMask);
             float bestScore = float.PositiveInfinity;
             for (int i = 0; i < hits.Length; i++)
@@ -962,7 +1204,7 @@ namespace PerspectivePuzzle.Presentation
                 PaintingManipulablePiece candidate = PieceByCollider(hits[i].collider);
                 if (candidate == null)
                     continue;
-                float score = PointerIntentScore(candidate, Input.mousePosition)
+                float score = PointerIntentScore(candidate, screenPoint)
                     + hits[i].distance * 0.0001f;
                 if (score < bestScore)
                 {

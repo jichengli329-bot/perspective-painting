@@ -1,24 +1,32 @@
-# Perspective Puzzle playtest
+# Perspective Painting 玩家测试
 
-Launch `Builds/Windows/PerspectivePuzzle.exe`. Keep the adjacent data and Mono folders beside the executable.
+运行 `Builds/WindowsPainting/PerspectivePainting.exe`。必须保留同目录中的 `PerspectivePainting_Data` 和 Unity 运行库。
 
-## Controls
+## 测试方式
 
-- Left click: place a block.
-- Right click: remove the top block in a column.
-- `1`, `2`, `3`: choose the active height layer.
-- `Z`: undo the most recent placement or removal.
-- `R`: reset only the current puzzle.
-- `Space`: continue after completing puzzle one or two.
+请先独立游玩，不查看源码或隐藏答案。遇到问题时优先使用侧栏提示、`H` 目标区域和 `Tab` 放大对照，只有完全卡住时才按 `G` 辅助摆放。
 
-## What to judge
+## 重点评价
 
-1. Can you understand the goal from the room and projection board without an explanation?
-2. Does hovering and clicking feel immediate, or do you fight the target grid?
-3. Can you tell which height layer is active before placing a block?
-4. Is the difference between missing, extra and matched projection cells obvious?
-5. Does completing a puzzle feel like a reveal rather than a technical success state?
-6. Do the three puzzles become more interesting, or does the single-view rule already feel repetitive?
-7. Does the visual direction feel like a desirable optical toy rather than a Unity prototype?
+1. 第一眼能否理解“用三维景物重构右侧目标画”；
+2. 目标图、实时画面和金色目标区域是否足够清楚；
+3. 拖动和前后层操作是否比思考本身更轻松；
+4. “向左/向右旋转 + 按键次数”是否消除了山体朝向盲猜；
+5. 第二关的两座山是否能分别选中、观察和调整；
+6. 第三关选中凉亭后，能否看懂它在目标画中的位置；
+7. `G` 是否只是救援功能，而不是完成关卡的必需操作；
+8. 第四关双视角是增加空间意义，还是增加了两份盲猜；
+9. 通关揭晓是否清楚表达了“混乱的三维结构从特定视角变成画”；
+10. 美术是否已经像一个可分享的游戏产品，而不只是 Unity 技术演示。
 
-The most important decision after this playtest is whether the next iteration should deepen the rule with a second projection view or first improve interaction and visual presentation.
+## 反馈格式
+
+```text
+关卡：
+卡住的位置：
+当时选中的物体：
+我原本以为应该怎么操作：
+实际发生了什么：
+是否使用 H / Tab / G：
+最影响体验的一件事：
+```
