@@ -1,36 +1,33 @@
 # Active delivery cycle
 
-Status: IN PROGRESS
+Status: COMPLETE
 
-## T-038 — Public repository and playtest release preparation
+## T-038 — Public repository and playtest release
 
-Prepare the current four-gallery Perspective Painting vertical slice for a safe public or private GitHub publication, pending the product owner's explicit choice.
+The four-gallery Perspective Painting vertical slice is publicly available as a proprietary source-visible repository and a verified Windows playtest Release.
 
-Scope:
+Delivery:
 
-- produce an accurate public README and current playtest guide;
-- document repository/Release/itch.io publishing boundaries;
-- audit tracked size, ignored Unity caches, credentials and remote state;
-- confirm repository visibility and license before creating the remote;
-- install/authenticate the required GitHub tooling without storing credentials in the repository;
-- push the verified source history and upload a complete zipped Windows build as a GitHub Release;
-- verify remote access before removing any regenerable local cache.
+- public repository: `https://github.com/jichengli329-bot/perspective-painting`;
+- Release: `https://github.com/jichengli329-bot/perspective-painting/releases/tag/v0.1.0-playtest`;
+- Windows asset: `PerspectivePainting-v0.1.0-playtest-windows-x64.zip`;
+- remote state: `uploaded`, 65,276,277 bytes;
+- SHA-256: `B8B70F8F0A4CE3845D78631D0A65C196429E082DDE0AAB06960807DEE33713CC`;
+- visibility: Public;
+- license: proprietary, all rights reserved.
 
-Acceptance:
+Verification:
 
-- owner confirms GitHub visibility and license;
-- remote repository contains the intended tracked source and no credentials/caches;
-- `v0.1.0-playtest` Release contains a downloadable Windows x64 ZIP that runs after clean extraction;
-- local repository remains clean and all remote commits are present;
-- only verified regenerable local folders are removed, with reclaimed space reported.
+- tracked-file and credential-name audits passed before publication;
+- the candidate was clean-extracted and survived the 15-second standalone smoke window with zero targeted runtime-error matches;
+- GitHub reports the same SHA-256 digest as the locally verified ZIP;
+- the Release was reduced to one complete ZIP asset after remote verification;
+- the temporary writable SSH deploy key was deleted and verified absent;
+- `Library`, `Logs`, `Builds`, `TestResults` and `outputs` were removed only after remote verification;
+- local cleanup reclaimed 2,799,135,367 bytes (about 2.61 GiB).
 
-Current evidence:
+Publication note:
 
-- local Git worktree was clean at T-038 start and has no remote;
-- 719 tracked files total approximately 26.84 MiB; largest tracked file is 2.18 MiB;
-- no credential-like tracked file match was found by the filename-only safety scan;
-- ignored local data includes Library ~1.72 GiB, Logs ~0.13 GiB and Builds ~0.31 GiB;
-- GitHub CLI is not currently installed;
-- owner confirmed a Public repository with all rights reserved;
-- README, proprietary LICENSE, publishing specification and current four-gallery playtest guide are prepared;
-- the 62.3 MiB Windows candidate ZIP was clean-extracted and remained alive for a 15-second smoke with zero targeted runtime error matches.
+- the public repository starts with a compact release snapshot rather than the entire private development history because the available GitHub route repeatedly broke long Git transfers;
+- seven large internal art-direction process images were intentionally omitted from the public snapshot; they are not runtime dependencies;
+- the complete local Git history remains in `.git`.
