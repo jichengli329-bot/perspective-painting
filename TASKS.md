@@ -370,7 +370,7 @@ Progress report — T-009B1/B2:
 
 ### T-010 — Perspective-piece manipulation
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Goal: replace grid placement in the new scene with selection, target-camera-plane dragging, depth adjustment, constrained rotation, reset, and undo for fixed-size scenery pieces inside authored bounds.
 
@@ -442,7 +442,7 @@ Hands-on tuning — T-010G.1:
 
 ### T-011 — Reference, live viewfinder, and guidance
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Goal: present the complete reference painting and live composition view clearly inside the exhibit; convert scorer diagnostics into restrained, readable near-match feedback and optional per-piece guidance.
 
@@ -553,10 +553,17 @@ Status: COMPLETE
 - Release candidate: `Builds/WindowsPainting/PerspectivePainting.exe`.
 # T-038 — Public repository and playtest release preparation
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Prepare accurate public documentation, audit the repository for credentials and oversized/generated content, confirm repository visibility and licensing with the product owner, publish the source to GitHub, attach a clean Windows x64 playtest ZIP to `v0.1.0-playtest`, verify the remote artifacts, and only then remove regenerable local caches.
 
 Active contract: `tasks/ACTIVE.md`. Publishing details: `docs/PUBLISHING_ZH.md`.
+
+Completion report:
+
+- Published the source-visible proprietary repository at `https://github.com/jichengli329-bot/perspective-painting`.
+- Published and remotely digest-verified `v0.1.0-playtest` with one 65,276,277-byte Windows ZIP asset.
+- Confirmed Public visibility, all-rights-reserved licensing, credential/cached-file exclusion and standalone smoke evidence.
+- Removed the temporary writable deploy key and reclaimed 2,799,135,367 bytes of regenerable local Unity/build/test data.
 
 ---
