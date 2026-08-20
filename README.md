@@ -32,7 +32,7 @@
 
 ## 试玩 Windows 版本
 
-正式发布后，请从仓库的 **Releases** 页面下载完整 ZIP。不要只下载 `.exe`：Unity 的数据目录和运行库必须与程序放在一起。
+请从 [v0.1.0-playtest Release](https://github.com/jichengli329-bot/perspective-painting/releases/tag/v0.1.0-playtest) 下载完整 Windows x64 ZIP。不要只下载 `.exe`：Unity 的数据目录和运行库必须与程序放在一起。
 
 当前本机构建入口：
 
