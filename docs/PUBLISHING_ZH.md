@@ -17,7 +17,7 @@
 - Unity 源码、场景和项目设置；
 - 目标图片与项目自制美术资源；
 - README、产品说明、架构说明、测试和第三方声明；
-- Git 历史。
+- 面向公开发布的源码快照与后续提交记录。
 
 仓库不包含：
 
@@ -51,16 +51,16 @@ itch.io 更适合面向普通玩家展示封面、3–5 张截图、介绍和 Wi
 
 - [x] 项目所有者确认仓库为 Public；
 - [x] 项目所有者确认许可证为保留全部权利；
-- [ ] README 中的截图、操作和四关说明与当前构建一致；
-- [ ] `git status` 干净；
-- [ ] 凭据扫描无结果；
-- [ ] 所有跟踪文件小于 GitHub 单文件限制；
-- [ ] PlayMode 与 EditMode 测试通过；
-- [ ] Windows 构建成功并完成独立进程冒烟；
-- [ ] ZIP 在新目录解压后可运行；
-- [ ] GitHub 远程仓库上传完成；
-- [ ] Release 下载链接在未登录窗口中可访问；
-- [ ] 远程验证完成后，才删除本地可重新生成的缓存。
+- [x] README 中的截图、操作和四关说明与当前构建一致；
+- [x] `git status` 干净；
+- [x] 凭据扫描无结果；
+- [x] 所有跟踪文件小于 GitHub 单文件限制；
+- [x] PlayMode 与 EditMode 测试通过；
+- [x] Windows 构建成功并完成独立进程冒烟；
+- [x] ZIP 在新目录解压后可运行；
+- [x] GitHub 远程仓库上传完成；
+- [x] Release 下载链接可公开访问；
+- [x] 远程验证完成后，才删除本地可重新生成的缓存。
 
 ## 建议仓库简介
 
@@ -122,3 +122,16 @@ SHA-256：B8B70F8F0A4CE3845D78631D0A65C196429E082DDE0AAB06960807DEE33713CC
 - `.git/`；
 - `docs/` 和测试；
 - 任何尚未推送的提交。
+
+## 2026-08-20 实际发布结果
+
+- 公开仓库：`https://github.com/jichengli329-bot/perspective-painting`
+- Release：`https://github.com/jichengli329-bot/perspective-painting/releases/tag/v0.1.0-playtest`
+- 下载文件：`PerspectivePainting-v0.1.0-playtest-windows-x64.zip`
+- GitHub 远端状态：`uploaded`
+- 远端大小：65,276,277 字节
+- 远端 SHA-256：`b8b70f8f0a4ce3845d78631d0a65c196429e082dde0aab06960807dee33713cc`
+- Release 最终只保留一个完整 ZIP；上传排障期间生成的临时分卷已全部删除。
+- 临时可写 SSH Deploy Key 已从 GitHub 删除，并复核为不存在。
+- 本地已删除 `Library/`、`Logs/`、`Builds/`、`TestResults/`、`outputs/`，共释放 2,799,135,367 字节（约 2.61 GiB）。
+- 公共仓库采用紧凑发布快照；七张不参与运行的大型内部美术过程图未进入公开快照，完整本地 Git 历史仍保留在 `.git`。
